@@ -28,6 +28,28 @@
 #
 ******************************************************************************/
 #include "DEV_Config.h"
+
+#if defined(__has_include)
+#if __has_include("app_config.h")
+#include "app_config.h"
+#define DEV_CONFIG_HAS_APP_CONFIG 1
+#endif
+#endif
+
+#ifndef DEV_CONFIG_HAS_APP_CONFIG
+#define DEV_CONFIG_SPI_DEVICE "/dev/spidev0.0"
+#define DEV_CONFIG_SPI_SPEED_HZ 1000000U
+#define DEV_CONFIG_PIN_RST 18
+#define DEV_CONFIG_PIN_CS 22
+#define DEV_CONFIG_PIN_DRDY 17
+#else
+#define DEV_CONFIG_SPI_DEVICE APP_ADC_SPI_DEVICE
+#define DEV_CONFIG_SPI_SPEED_HZ APP_ADC_SPI_SPEED_HZ
+#define DEV_CONFIG_PIN_RST APP_ADC_PIN_RST
+#define DEV_CONFIG_PIN_CS APP_ADC_PIN_CS
+#define DEV_CONFIG_PIN_DRDY APP_ADC_PIN_DRDY
+#endif
+
 #include <fcntl.h>
 
 /**
@@ -215,12 +237,30 @@ static int DEV_Equipment_Testing(void)
 	if(i<5) {
 		printf("Unrecognizable\r\n");
 	} else {
-		char RPI_System[10]   = {"Raspbian"};
+		char RPI_System[10] = {"Raspbian"};
+		char Debian_System[10] = {"Debian"};
+		int is_raspbian = 1;
+		int is_debian = 1;
+
 		for(i=0; i<6; i++) {
-			if(RPI_System[i]!= value_str[i]) {
-				printf("Please make JETSON !!!!!!!!!!\r\n");
-				return -1;
+			if(RPI_System[i] != value_str[i]) {
+				is_raspbian = 0;
+				break;
 			}
+		}
+
+		if(!is_raspbian) {
+			for(i=0; i<6; i++) {
+				if(Debian_System[i] != value_str[i]) {
+					is_debian = 0;
+					break;
+				}
+			}
+		}
+
+		if(!is_raspbian && !is_debian) {
+			printf("Please make JETSON !!!!!!!!!!\r\n");
+			return -1;
 		}
 	}
 #endif
@@ -243,9 +283,9 @@ static int DEV_Equipment_Testing(void)
 void DEV_GPIO_Init(void)
 {
 #ifdef RPI
-	DEV_RST_PIN     = 18;
-	DEV_CS_PIN      = 22;
-	DEV_DRDY_PIN    = 17;
+	DEV_RST_PIN     = DEV_CONFIG_PIN_RST;
+	DEV_CS_PIN      = DEV_CONFIG_PIN_CS;
+	DEV_DRDY_PIN    = DEV_CONFIG_PIN_DRDY;
 #elif JETSON
 	DEV_RST_PIN     = GPIO18;
 	DEV_CS_PIN      = GPIO22;
@@ -299,12 +339,12 @@ UBYTE DEV_Module_Init(void)
 	// GPIO Config
 	DEV_GPIO_Init();
 	// wiringPiSPISetup(0,10000000);
-	wiringPiSPISetupMode(0, 1000000, 1);
+	wiringPiSPISetupMode(0, DEV_CONFIG_SPI_SPEED_HZ, 1);
 #elif USE_DEV_LIB
-	printf("Write and read /dev/spidev0.0 \r\n");
+	printf("Write and read %s \r\n", DEV_CONFIG_SPI_DEVICE);
 	DEV_GPIO_Init();
-	DEV_HARDWARE_SPI_begin("/dev/spidev0.0");
-    DEV_HARDWARE_SPI_setSpeed(1000000);
+	DEV_HARDWARE_SPI_begin(DEV_CONFIG_SPI_DEVICE);
+    DEV_HARDWARE_SPI_setSpeed(DEV_CONFIG_SPI_SPEED_HZ);
 	DEV_HARDWARE_SPI_Mode(SPI_MODE_1);
 #endif
 
